@@ -9,7 +9,7 @@ from aiogram.fsm.context import FSMContext
 load_dotenv()
 
 TOKEN = os.getenv("8409695955:AAG085BWrkAhonfBxDFFD4d1vJJx_JJJAss")
-ADMIN_ID = int(os.getenv("1746229472"))
+ADMIN_ID = int(os.getenv("ADMIN_ID"))
 
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
