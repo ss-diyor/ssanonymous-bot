@@ -58,22 +58,31 @@ async def anonim_start(message: types.Message, state: FSMContext):
 @dp.message(Anonymous.waiting_for_message)
 async def get_anonim(message: types.Message, state: FSMContext):
     try:
-        caption = "📩 Yangi anonim murojaat"
+        caption_text = "📩 Yangi anonim murojaat"
         if message.text:
-            await bot.send_message(ADMIN_ID, f"{caption}:\n\n{message.text}")
+            await bot.send_message(ADMIN_ID, f"{caption_text}:\n\n{message.text}")
         elif message.photo:
+            caption = f"{caption_text}"
+            if message.caption:
+                caption += f":\n\n{message.caption}"
             await bot.send_photo(ADMIN_ID, message.photo[-1].file_id, caption=caption)
         elif message.document:
+            caption = f"{caption_text}"
+            if message.caption:
+                caption += f":\n\n{message.caption}"
             await bot.send_document(ADMIN_ID, message.document.file_id, caption=caption)
         elif message.video:
+            caption = f"{caption_text}"
+            if message.caption:
+                caption += f":\n\n{message.caption}"
             await bot.send_video(ADMIN_ID, message.video.file_id, caption=caption)
         elif message.voice:
-            await bot.send_voice(ADMIN_ID, message.voice.file_id, caption=caption)
+            await bot.send_voice(ADMIN_ID, message.voice.file_id, caption=caption_text)
         elif message.audio:
-            await bot.send_audio(ADMIN_ID, message.audio.file_id, caption=caption)
+            await bot.send_audio(ADMIN_ID, message.audio.file_id, caption=caption_text)
         elif message.sticker:
             await bot.send_sticker(ADMIN_ID, message.sticker.file_id)
-            await bot.send_message(ADMIN_ID, caption)
+            await bot.send_message(ADMIN_ID, caption_text)
         else:
             await message.answer("⚠️ Bu turdagi kontent qabul qilinmaydi.")
             return
