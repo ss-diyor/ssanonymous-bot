@@ -8,7 +8,7 @@ from aiogram.fsm.context import FSMContext
 
 load_dotenv()
 
-TOKEN = os.getenv("8409695955:AAG085BWrkAhonfBxDFFD4d1vJJx_JJJAss")
+TOKEN = os.getenv("BOT_TOKEN")
 ADMIN_ID = int(os.getenv("ADMIN_ID"))
 
 bot = Bot(token=TOKEN)
