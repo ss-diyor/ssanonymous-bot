@@ -46,7 +46,7 @@ async def links(message: types.Message):
     await message.answer(
         "📢 Telegram kanal:\n"
         "https://t.me/Bustanlikspecializedschool\n\n"
-        "🎮 Discord server (run and managed by senior student):\n"
+        "🎮 Discord server: (run and managed by senior student)\n"
         "https://discord.gg/RsSFaC8zX"
     )
 
@@ -88,7 +88,7 @@ async def get_anonim(message: types.Message, state: FSMContext):
             await message.answer("⚠️ Bu turdagi kontent qabul qilinmaydi.")
             return
         await message.answer("✅ Murojaatingiz yuborildi. Rahmat.")
-    except Exception:
+    except Exception as e:
         await message.answer("❌ Xatolik yuz berdi. Qayta urinib ko'ring.")
     finally:
         await state.clear()
@@ -99,19 +99,19 @@ async def admin_reply(message: types.Message):
         replied = message.reply_to_message
         # user_id ni xabardan olish
         text = replied.text or replied.caption or ""
-        lines = text.split("\n")
         user_id = None
-        for line in lines:
-            if "🆔" in line:
-                user_id = int(line.replace("🆔", "").replace("`", "").strip())
-                break
+        
+        import re
+        match = re.search(r'🆔 `(\d+)`', text)
+        if match:
+            user_id = int(match.group(1))
         if not user_id:
-            await message.answer("❌ Foydalanuvchi ID topilmadi.")
+            await message.answer("❌ Foydalanuvchi ID topilmadi. Iltimos, bot yuborgan anonim xabarga javob bering.")
             return
         await bot.send_message(user_id, f"📬 Admin javobi:\n\n{message.text}")
         await message.answer("✅ Javob yuborildi.")
-    except Exception:
-        await message.answer("❌ Xatolik yuz berdi.")
+    except Exception as e:
+        await message.answer(f"❌ Xatolik yuz berdi: {e}")
 
 async def main():
     await dp.start_polling(bot)
