@@ -21,7 +21,7 @@ class Anonymous(StatesGroup):
 async def start(message: types.Message):
     text = (
         f"Assalomu alaykum {message.from_user.mention_html()}! \n\n"
-        "Bo'stonliq tuman ixtisoslashtirilgan maktabining murojaatlar uchun botiga xush kelibsiz.\n\n"
+        "Bo'stonliq Tumani Ixtisoslashtirilgan Maktabining murojaatlar uchun botiga xush kelibsiz.\n\n"
         "📨 Anonim murojaat: /anonim\n"
         "ℹ️ Maktab haqida: /info\n"
         "🔗 Telegram kanal va Discord server: /links"
@@ -32,7 +32,7 @@ async def start(message: types.Message):
 async def info(message: types.Message):
     await message.answer(
         "🏫 Bizning maktabimiz 2022-yilda tashkil etilgan bo'lib, asosiy maqsad o'quvchilarga sifatli ta'lim va keng imkoniyatlar yaratishdir. "
-        "Maktabimiz zamonaviy o'quv muassasasi bo'lib 5–11-sinflar uchun yuqori darajadagi ta'lim beriladi. Maktab jamoasi do'stona hamkorlikka tayyor.\n\n"
+        "Maktabimiz zamonaviy o'quv muassasasi bo'lib 5–11-sinflar uchun yuqori sifatli ta'lim beradi. Maktab jamoasi do'stona hamkorlikka tayyor.\n\n"
         "Maktabimizda:\n"
         "- Zamonaviy fanlar darslari (matematika, fizika, ingliz tili, kimyo, biologiya va boshqalar)\n"
         "- Sport va ijodiy to'garaklar.\n"
@@ -47,7 +47,7 @@ async def links(message: types.Message):
         "📢 Telegram kanal:\n"
         "https://t.me/Bustanlikspecializedschool\n\n"
         "🎮 Discord server (run and managed by senior student):\n"
-        "https://discord.gg/5vBytDqjz"
+        "https://discord.gg/RsSFaC8zX"
     )
 
 @dp.message(Command("anonim"))
@@ -58,31 +58,32 @@ async def anonim_start(message: types.Message, state: FSMContext):
 @dp.message(Anonymous.waiting_for_message)
 async def get_anonim(message: types.Message, state: FSMContext):
     try:
-        caption_text = "📩 Yangi anonim murojaat"
+        user_id = message.from_user.id
+        caption_text = f"📩 Yangi anonim murojaat\n🆔 `{user_id}`"
         if message.text:
-            await bot.send_message(ADMIN_ID, f"{caption_text}:\n\n{message.text}")
+            await bot.send_message(ADMIN_ID, f"{caption_text}:\n\n{message.text}", parse_mode="Markdown")
         elif message.photo:
-            caption = f"{caption_text}"
+            caption = caption_text
             if message.caption:
                 caption += f":\n\n{message.caption}"
-            await bot.send_photo(ADMIN_ID, message.photo[-1].file_id, caption=caption)
+            await bot.send_photo(ADMIN_ID, message.photo[-1].file_id, caption=caption, parse_mode="Markdown")
         elif message.document:
-            caption = f"{caption_text}"
+            caption = caption_text
             if message.caption:
                 caption += f":\n\n{message.caption}"
-            await bot.send_document(ADMIN_ID, message.document.file_id, caption=caption)
+            await bot.send_document(ADMIN_ID, message.document.file_id, caption=caption, parse_mode="Markdown")
         elif message.video:
-            caption = f"{caption_text}"
+            caption = caption_text
             if message.caption:
                 caption += f":\n\n{message.caption}"
-            await bot.send_video(ADMIN_ID, message.video.file_id, caption=caption)
+            await bot.send_video(ADMIN_ID, message.video.file_id, caption=caption, parse_mode="Markdown")
         elif message.voice:
-            await bot.send_voice(ADMIN_ID, message.voice.file_id, caption=caption_text)
+            await bot.send_voice(ADMIN_ID, message.voice.file_id, caption=caption_text, parse_mode="Markdown")
         elif message.audio:
-            await bot.send_audio(ADMIN_ID, message.audio.file_id, caption=caption_text)
+            await bot.send_audio(ADMIN_ID, message.audio.file_id, caption=caption_text, parse_mode="Markdown")
         elif message.sticker:
             await bot.send_sticker(ADMIN_ID, message.sticker.file_id)
-            await bot.send_message(ADMIN_ID, caption_text)
+            await bot.send_message(ADMIN_ID, caption_text, parse_mode="Markdown")
         else:
             await message.answer("⚠️ Bu turdagi kontent qabul qilinmaydi.")
             return
@@ -91,6 +92,26 @@ async def get_anonim(message: types.Message, state: FSMContext):
         await message.answer("❌ Xatolik yuz berdi. Qayta urinib ko'ring.")
     finally:
         await state.clear()
+
+@dp.message(lambda message: message.chat.id == ADMIN_ID and message.reply_to_message)
+async def admin_reply(message: types.Message):
+    try:
+        replied = message.reply_to_message
+        # user_id ni xabardan olish
+        text = replied.text or replied.caption or ""
+        lines = text.split("\n")
+        user_id = None
+        for line in lines:
+            if "🆔" in line:
+                user_id = int(line.replace("🆔", "").replace("`", "").strip())
+                break
+        if not user_id:
+            await message.answer("❌ Foydalanuvchi ID topilmadi.")
+            return
+        await bot.send_message(user_id, f"📬 Admin javobi:\n\n{message.text}")
+        await message.answer("✅ Javob yuborildi.")
+    except Exception:
+        await message.answer("❌ Xatolik yuz berdi.")
 
 async def main():
     await dp.start_polling(bot)
