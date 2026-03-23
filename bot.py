@@ -1,7 +1,8 @@
 import asyncio
 import os
 from dotenv import load_dotenv
-from aiogram import Bot, Dispatcher, types
+from aiogram import Bot, Dispatcher
+from aiogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
 from aiogram.filters import Command
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.context import FSMContext
@@ -10,12 +11,14 @@ load_dotenv()
 
 TOKEN = os.getenv("BOT_TOKEN")
 ADMIN_ID = int(os.getenv("ADMIN_ID"))
+ADMIN_REPLY_CALLBACK_PREFIX = "admin_reply_to_user_"
 
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
 
 class Anonymous(StatesGroup):
     waiting_for_message = State()
+    waiting_for_admin_reply = State()
 
 @dp.message(Command("start"))
 async def start(message: types.Message):
@@ -46,7 +49,7 @@ async def links(message: types.Message):
     await message.answer(
         "📢 Telegram kanal:\n"
         "https://t.me/Bustanlikspecializedschool\n\n"
-        "🎮 Discord server: (run and managed by senior student)\n"
+        "🎮 Discord server (run and managed by senior student):\n"
         "https://discord.gg/RsSFaC8zX"
     )
 
@@ -61,28 +64,36 @@ async def get_anonim(message: types.Message, state: FSMContext):
         user_id = message.from_user.id
         caption_text = f"📩 Yangi anonim murojaat\n🆔 `{user_id}`"
         if message.text:
-            await bot.send_message(ADMIN_ID, f"{caption_text}:\n\n{message.text}", parse_mode="Markdown")
+            reply_markup = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="Javob berish", callback_data=f"{ADMIN_REPLY_CALLBACK_PREFIX}{user_id}")]])
+            await bot.send_message(ADMIN_ID, f"{caption_text}:\n\n{message.text}", parse_mode="Markdown", reply_markup=reply_markup)
         elif message.photo:
             caption = caption_text
             if message.caption:
                 caption += f":\n\n{message.caption}"
-            await bot.send_photo(ADMIN_ID, message.photo[-1].file_id, caption=caption, parse_mode="Markdown")
+            reply_markup = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="Javob berish", callback_data=f"{ADMIN_REPLY_CALLBACK_PREFIX}{user_id}")]])
+            await bot.send_photo(ADMIN_ID, message.photo[-1].file_id, caption=caption, parse_mode="Markdown", reply_markup=reply_markup)
         elif message.document:
             caption = caption_text
             if message.caption:
                 caption += f":\n\n{message.caption}"
-            await bot.send_document(ADMIN_ID, message.document.file_id, caption=caption, parse_mode="Markdown")
+            reply_markup = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="Javob berish", callback_data=f"{ADMIN_REPLY_CALLBACK_PREFIX}{user_id}")]])
+            await bot.send_document(ADMIN_ID, message.document.file_id, caption=caption, parse_mode="Markdown", reply_markup=reply_markup)
         elif message.video:
             caption = caption_text
             if message.caption:
                 caption += f":\n\n{message.caption}"
-            await bot.send_video(ADMIN_ID, message.video.file_id, caption=caption, parse_mode="Markdown")
+            reply_markup = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="Javob berish", callback_data=f"{ADMIN_REPLY_CALLBACK_PREFIX}{user_id}")]])
+            await bot.send_video(ADMIN_ID, message.video.file_id, caption=caption, parse_mode="Markdown", reply_markup=reply_markup)
         elif message.voice:
-            await bot.send_voice(ADMIN_ID, message.voice.file_id, caption=caption_text, parse_mode="Markdown")
+            reply_markup = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="Javob berish", callback_data=f"{ADMIN_REPLY_CALLBACK_PREFIX}{user_id}")]])
+            await bot.send_voice(ADMIN_ID, message.voice.file_id, caption=caption_text, parse_mode="Markdown", reply_markup=reply_markup)
         elif message.audio:
-            await bot.send_audio(ADMIN_ID, message.audio.file_id, caption=caption_text, parse_mode="Markdown")
+            reply_markup = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="Javob berish", callback_data=f"{ADMIN_REPLY_CALLBACK_PREFIX}{user_id}")]])
+            await bot.send_audio(ADMIN_ID, message.audio.file_id, caption=caption_text, parse_mode="Markdown", reply_markup=reply_markup)
         elif message.sticker:
-            await bot.send_sticker(ADMIN_ID, message.sticker.file_id)
+            reply_markup = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="Javob berish", callback_data=f"{ADMIN_REPLY_CALLBACK_PREFIX}{user_id}")]])
+            await bot.send_sticker(ADMIN_ID, message.sticker.file_id, reply_markup=reply_markup)
+            # For stickers, we also send the caption_text separately as stickers don't have captions in the same way as other media
             await bot.send_message(ADMIN_ID, caption_text, parse_mode="Markdown")
         else:
             await message.answer("⚠️ Bu turdagi kontent qabul qilinmaydi.")
@@ -93,23 +104,27 @@ async def get_anonim(message: types.Message, state: FSMContext):
     finally:
         await state.clear()
 
-@dp.message(lambda message: message.chat.id == ADMIN_ID and message.reply_to_message)
+@dp.callback_query(lambda c: c.data and c.data.startswith(ADMIN_REPLY_CALLBACK_PREFIX))
+async def admin_reply_callback_handler(callback_query: CallbackQuery, state: FSMContext):
+    user_id = int(callback_query.data.split(ADMIN_REPLY_CALLBACK_PREFIX)[1])
+    await state.update_data(reply_to_user_id=user_id)
+    await state.set_state(Anonymous.waiting_for_admin_reply)
+    await callback_query.message.answer(f"Foydalanuvchi ID: `{user_id}` ga javob yozishingiz mumkin.", parse_mode="Markdown")
+    await callback_query.answer()
+
+@dp.message(Anonymous.waiting_for_admin_reply)
 async def admin_reply(message: types.Message):
     try:
-        replied = message.reply_to_message
-        # user_id ni xabardan olish
-        text = replied.text or replied.caption or ""
-        user_id = None
-        
-        import re
-        match = re.search(r'🆔 `(\d+)`', text)
-        if match:
-            user_id = int(match.group(1))
+        data = await state.get_data()
+        user_id = data.get("reply_to_user_id")
+
         if not user_id:
-            await message.answer("❌ Foydalanuvchi ID topilmadi. Iltimos, bot yuborgan anonim xabarga javob bering.")
+            await message.answer("❌ Foydalanuvchi ID topilmadi. Iltimos, 'Javob berish' tugmasi orqali javob bering.")
+            await state.clear()
             return
         await bot.send_message(user_id, f"📬 Admin javobi:\n\n{message.text}")
         await message.answer("✅ Javob yuborildi.")
+        await state.clear()
     except Exception as e:
         await message.answer(f"❌ Xatolik yuz berdi: {e}")
 
