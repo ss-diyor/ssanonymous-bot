@@ -113,7 +113,7 @@ async def admin_reply_callback_handler(callback_query: CallbackQuery, state: FSM
     await callback_query.answer()
 
 @dp.message(Anonymous.waiting_for_admin_reply)
-async def admin_reply(message: types.Message):
+async def admin_reply(message: types.Message, state: FSMContext):
     try:
         data = await state.get_data()
         user_id = data.get("reply_to_user_id")
