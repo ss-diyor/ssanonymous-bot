@@ -57,10 +57,18 @@ async def change_language(message: types.Message, state: FSMContext):
 @dp.callback_query(lambda c: c.data and c.data.startswith("lang_"))
 async def language_selection_handler(callback_query: types.CallbackQuery, state: FSMContext):
     lang_code = callback_query.data.split("_")[1]
+    # Tilni FSM xotirasida saqlaymiz
     await state.update_data(lang=lang_code)
+    
+    # Tanlangan til haqida xabar beramiz
     await callback_query.message.delete()
     await callback_query.message.answer(get_text("language_selected", lang=lang_code))
-    await state.clear()
+    
+    # Holatni (state) tozalash o'rniga, faqat tilni saqlab qolamiz
+    # state.clear() o'rniga faqat kerakli holatni o'zgartiramiz
+    await state.set_state(None)
+    
+    # Asosiy menyuni ko'rsatamiz
     await start(callback_query.message, state)
 
 @dp.message(Command("info"))
