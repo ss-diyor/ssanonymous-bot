@@ -69,6 +69,8 @@ async def language_selection_handler(callback_query: types.CallbackQuery, state:
     await state.set_state(None)
     
     # Asosiy menyuni ko'rsatamiz
+    # callback_query.message botning xabari bo'lgani uchun, foydalanuvchi ma'lumotlarini callback_query.from_user dan olamiz
+    callback_query.message.from_user = callback_query.from_user
     await start(callback_query.message, state)
 
 @dp.message(Command("info"))
