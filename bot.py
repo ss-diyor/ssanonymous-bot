@@ -27,7 +27,7 @@ class Anonymous(StatesGroup):
 @dp.message(Command("start"))
 async def start(message: types.Message, state: FSMContext):
     user_data = await state.get_data()
-    lang = user_data.get("lang", "uz") # Default to Uzbek
+    lang = user_data.get("lang")
 
     if not lang:
         await state.set_state(Anonymous.waiting_for_language)
@@ -43,6 +43,16 @@ async def start(message: types.Message, state: FSMContext):
         get_text("welcome", lang=lang).format(mention=message.from_user.mention_html())
     )
     await message.answer(text, parse_mode="HTML")
+
+@dp.message(Command("lang"))
+async def change_language(message: types.Message, state: FSMContext):
+    await state.set_state(Anonymous.waiting_for_language)
+    lang_keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="O'zbekcha 🇺🇿", callback_data="lang_uz")],
+        [InlineKeyboardButton(text="Русский 🇷🇺", callback_data="lang_ru")],
+        [InlineKeyboardButton(text="English 🇬🇧", callback_data="lang_en")]
+    ])
+    await message.answer(get_text("language_select_prompt"), reply_markup=lang_keyboard)
 
 @dp.callback_query(lambda c: c.data and c.data.startswith("lang_"))
 async def language_selection_handler(callback_query: types.CallbackQuery, state: FSMContext):
