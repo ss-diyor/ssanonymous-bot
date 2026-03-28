@@ -65,13 +65,12 @@ async def language_selection_handler(callback_query: types.CallbackQuery, state:
     await callback_query.message.answer(get_text("language_selected", lang=lang_code))
     
     # Holatni (state) tozalash o'rniga, faqat tilni saqlab qolamiz
-    # state.clear() o'rniga faqat kerakli holatni o'zgartiramiz
     await state.set_state(None)
     
-    # Asosiy menyuni ko'rsatamiz
-    # callback_query.message botning xabari bo'lgani uchun, foydalanuvchi ma'lumotlarini callback_query.from_user dan olamiz
-    callback_query.message.from_user = callback_query.from_user
-    await start(callback_query.message, state)
+    # Asosiy menyuni (welcome message) to'g'ridan-to'g'ri shu yerda ko'rsatamiz
+    # start funksiyasini chaqirish o'rniga, matnni shu yerda yuboramiz
+    text = get_text("welcome", lang=lang_code).format(mention=callback_query.from_user.mention_html())
+    await callback_query.message.answer(text, parse_mode="HTML")
 
 @dp.message(Command("info"))
 async def info(message: types.Message, state: FSMContext):
