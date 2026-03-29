@@ -21,6 +21,7 @@ TOKEN    = os.getenv("BOT_TOKEN")
 ADMIN_ID = int(os.getenv("ADMIN_ID"))
 ADMIN_REPLY_PREFIX = "admin_reply_to_user_"
 FILTER_PREFIX      = "filter_cat_"
+BROADCAST_PREFIX   = "broadcast_"
 
 bot = Bot(token=TOKEN)
 dp  = Dispatcher()
