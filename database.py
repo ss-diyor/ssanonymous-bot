@@ -31,6 +31,12 @@ async def init_db():
                 FOREIGN KEY (user_id) REFERENCES users(user_id)
             )
         """)
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS admins (
+                admin_id  INTEGER PRIMARY KEY,
+                added_at  TEXT    DEFAULT (datetime('now'))
+            )
+        """)
         await db.commit()
 
 
@@ -164,3 +170,27 @@ async def get_all_user_ids() -> list[int]:
         cursor = await db.execute("SELECT user_id FROM users")
         rows = await cursor.fetchall()
         return [row[0] for row in rows]
+
+
+# ─── Admins ───────────────────────────────────────────────────────────────────
+
+async def get_all_admin_ids() -> list[int]:
+    """Barcha adminlar ID sini qaytaradi (bosh admin bundan tashqari)."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        cursor = await db.execute("SELECT admin_id FROM admins")
+        rows = await cursor.fetchall()
+        return [row[0] for row in rows]
+
+async def add_admin(admin_id: int):
+    """Yangi admin qo'shadi."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute("""
+            INSERT OR IGNORE INTO admins (admin_id) VALUES (?)
+        """, (admin_id,))
+        await db.commit()
+
+async def remove_admin(admin_id: int):
+    """Adminni o'chiradi."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute("DELETE FROM admins WHERE admin_id = ?", (admin_id,))
+        await db.commit()
