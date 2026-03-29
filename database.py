@@ -193,6 +193,27 @@ async def get_messages_by_category(category: str) -> list[dict]:
             for r in rows
         ]
 
+async def get_pending_messages() -> list[dict]:
+    """Javob kutayotgan va ko'rib chiqilayotgan xabarlarni qaytaradi."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        cursor = await db.execute("""
+            SELECT id, user_id, category, status, sent_at
+            FROM messages
+            WHERE status IN ('pending', 'reviewing')
+            ORDER BY id ASC
+        """)
+        rows = await cursor.fetchall()
+        return [
+            {
+                "id":       r[0],
+                "user_id":  r[1],
+                "category": r[2],
+                "status":   r[3],
+                "sent_at":  r[4],
+            }
+            for r in rows
+        ]
+
 async def get_all_user_ids() -> list[int]:
     """Barcha foydalanuvchilar ID sini qaytaradi."""
     async with aiosqlite.connect(DB_PATH) as db:
