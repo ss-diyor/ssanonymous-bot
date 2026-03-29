@@ -27,6 +27,7 @@ LANGUAGES = {
         'status_no_messages': "Siz hali xabar yubormagansiz.",
         'status_pending': "Kutilmoqda",
         'status_answered': "Javob berildi",
+        'status_reviewing': "Ko'rib chiqilmoqda",
     },
     'ru': {
         'welcome': "Привет {mention}! \n\nДобро пожаловать в бот для обращений Специализированной школы Бустaнликского района.\n\n📨 Анонимное обращение: /anonim\nℹ️ О школе: /info\n🔗 Telegram канал и Discord сервер: /links",
@@ -56,6 +57,7 @@ LANGUAGES = {
         'status_no_messages': "Вы ещё не отправляли сообщений.",
         'status_pending': "Ожидает ответа",
         'status_answered': "Отвечено",
+        'status_reviewing': "Рассматривается",
     },
     'en': {
         'welcome': "Hello {mention}! \n\nWelcome to the anonymous appeal bot of Bustanlik District Specialized School.\n\n📨 Anonymous appeal: /anonim\nℹ️ About the school: /info\n🔗 Telegram channel and Discord server: /links",
@@ -85,6 +87,7 @@ LANGUAGES = {
         'status_no_messages': "You haven't sent any messages yet.",
         'status_pending': "Pending",
         'status_answered': "Answered",
+        'status_reviewing': "Under review",
     }
 }
 
