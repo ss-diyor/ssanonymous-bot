@@ -9,7 +9,8 @@ from aiogram.fsm.context import FSMContext
 from LANGUAGES import get_text
 from database import (
     init_db, upsert_user,
-    save_message, mark_answered, get_last_message_status,
+    save_message, mark_answered, mark_reviewing, get_message_user_id,
+    get_last_message_status,
     get_today_count, get_status_counts, get_category_counts,
     get_active_users_count, get_messages_by_category,
     get_all_user_ids,
@@ -51,7 +52,11 @@ def reply_button(user_id: int, message_id: int) -> InlineKeyboardMarkup:
         InlineKeyboardButton(
             text="✉️ Javob berish",
             callback_data=f"{ADMIN_REPLY_PREFIX}{user_id}:{message_id}"
-        )
+        ),
+        InlineKeyboardButton(
+            text="👁 Ko'rib chiqdim",
+            callback_data=f"{REVIEWING_PREFIX}{message_id}"
+        ),
     ]])
 
 def stats_filter_keyboard() -> InlineKeyboardMarkup:
@@ -137,7 +142,7 @@ async def cmd_status(message: Message, state: FSMContext):
         await message.answer(get_text("status_no_messages", lang=lang))
         return
 
-    status_emoji = "✅" if result["status"] == "answered" else "⏳"
+    status_emoji = {"answered": "✅", "reviewing": "👁", "pending": "⏳"}.get(result["status"], "⏳")
     status_label = get_text(f"status_{result['status']}", lang=lang)
     cat_label    = get_text(f"category_{result['category']}", lang=lang)
 
@@ -353,6 +358,47 @@ async def cb_filter_category(callback: CallbackQuery):
 
     await callback.message.answer("\n".join(lines), parse_mode="Markdown")
     await callback.answer()
+
+
+# ─── Ko'rib chiqdim ──────────────────────────────────────────────────────────
+
+@dp.callback_query(lambda c: c.data and c.data.startswith(REVIEWING_PREFIX))
+async def cb_reviewing(callback: CallbackQuery):
+    if callback.from_user.id != ADMIN_ID:
+        await callback.answer("⛔ Ruxsat yo'q.", show_alert=True)
+        return
+
+    message_id = int(callback.data.split(REVIEWING_PREFIX, 1)[1])
+
+    # DBda holatni o'zgartirish
+    await mark_reviewing(message_id)
+
+    # Foydalanuvchiga bildirishnoma yuborish
+    user_id = await get_message_user_id(message_id)
+    if user_id:
+        try:
+            await bot.send_message(
+                user_id,
+                "👁 Xabaringiz ko'rib chiqilmoqda. Tez orada javob beriladi."
+            )
+        except Exception:
+            pass
+
+    # Tugmani o'zgartirish — faqat "Javob berish" qolsin
+    try:
+        parts = callback.message.reply_markup.inline_keyboard[0][0].callback_data
+        user_id_from_btn = int(parts.split(ADMIN_REPLY_PREFIX, 1)[1].split(":")[0])
+        new_markup = InlineKeyboardMarkup(inline_keyboard=[[
+            InlineKeyboardButton(
+                text="✉️ Javob berish",
+                callback_data=f"{ADMIN_REPLY_PREFIX}{user_id_from_btn}:{message_id}"
+            )
+        ]])
+        await callback.message.edit_reply_markup(reply_markup=new_markup)
+    except Exception:
+        pass
+
+    await callback.answer("✅ Foydalanuvchiga bildirishnoma yuborildi.", show_alert=True)
 
 
 # ─── /broadcast (admin only) ─────────────────────────────────────────────────
