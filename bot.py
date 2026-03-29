@@ -14,24 +14,27 @@ from database import (
     get_today_count, get_status_counts, get_category_counts,
     get_active_users_count, get_messages_by_category,
     get_all_user_ids,
+    get_all_admin_ids, add_admin, remove_admin,
 )
 
 load_dotenv()
 
-# --- Configuration ---
-TOKEN    = os.getenv("BOT_TOKEN")
-ADMIN_ID = int(os.getenv("ADMIN_ID"))
+# ─── Configuration ────────────────────────────────────────────────────────────
 
-# Prefixlar (Callback data uchun)
+TOKEN         = os.getenv("BOT_TOKEN")
+SUPER_ADMIN_ID = int(os.getenv("ADMIN_ID"))  # Bosh admin — faqat Railway Variables dan
+
 ADMIN_REPLY_PREFIX = "admin_reply_to_user_"
 FILTER_PREFIX      = "filter_cat_"
 BROADCAST_PREFIX   = "broadcast_"
-REVIEWING_PREFIX   = "reviewing_msg_"  # <-- BU QATOR QO'SHILDI (Xatolik bartaraf etildi)
+REVIEWING_PREFIX   = "reviewing_msg_"
 
 bot = Bot(token=TOKEN)
 dp  = Dispatcher()
 
-# --- States ---
+
+# ─── States ───────────────────────────────────────────────────────────────────
+
 class Anonymous(StatesGroup):
     waiting_for_message      = State()
     waiting_for_admin_reply  = State()
@@ -39,7 +42,9 @@ class Anonymous(StatesGroup):
     waiting_for_category     = State()
     waiting_for_broadcast    = State()
 
-# --- Helpers ---
+
+# ─── Helpers ──────────────────────────────────────────────────────────────────
+
 def lang_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="O'zbekcha 🇺🇿", callback_data="lang_uz")],
@@ -76,7 +81,15 @@ async def clear_state_keep_lang(state: FSMContext):
     await state.clear()
     await state.update_data(lang=lang)
 
-# --- Handlers ---
+async def is_admin(user_id: int) -> bool:
+    """Foydalanuvchi admin yoki superadminmi tekshiradi."""
+    if user_id == SUPER_ADMIN_ID:
+        return True
+    admin_ids = await get_all_admin_ids()
+    return user_id in admin_ids
+
+
+# ─── /start ───────────────────────────────────────────────────────────────────
 
 @dp.message(Command("start"))
 async def cmd_start(message: Message, state: FSMContext):
@@ -89,6 +102,9 @@ async def cmd_start(message: Message, state: FSMContext):
     await upsert_user(message.from_user.id, lang)
     text = get_text("welcome", lang=lang).format(mention=message.from_user.mention_html())
     await message.answer(text, parse_mode="HTML")
+
+
+# ─── /lang ────────────────────────────────────────────────────────────────────
 
 @dp.message(Command("lang"))
 async def cmd_lang(message: Message, state: FSMContext):
@@ -103,11 +119,15 @@ async def cb_language(callback: CallbackQuery, state: FSMContext):
     await upsert_user(callback.from_user.id, lang_code)
     try:
         await callback.message.delete()
-    except Exception: pass
+    except Exception:
+        pass
     await callback.message.answer(get_text("language_selected", lang=lang_code))
     text = get_text("welcome", lang=lang_code).format(mention=callback.from_user.mention_html())
     await callback.message.answer(text, parse_mode="HTML")
     await callback.answer()
+
+
+# ─── /info & /links ───────────────────────────────────────────────────────────
 
 @dp.message(Command("info"))
 async def cmd_info(message: Message, state: FSMContext):
@@ -116,6 +136,9 @@ async def cmd_info(message: Message, state: FSMContext):
 @dp.message(Command("links"))
 async def cmd_links(message: Message, state: FSMContext):
     await message.answer(get_text("links_text", lang=await get_lang(state)))
+
+
+# ─── /status ──────────────────────────────────────────────────────────────────
 
 @dp.message(Command("status"))
 async def cmd_status(message: Message, state: FSMContext):
@@ -137,6 +160,9 @@ async def cmd_status(message: Message, state: FSMContext):
         text += f"\n✉️ {get_text('status_answered_at', lang=lang)}: {result['answered_at'][:16]}"
     await message.answer(text, parse_mode="Markdown")
 
+
+# ─── /anonim ──────────────────────────────────────────────────────────────────
+
 @dp.message(Command("anonim"))
 async def cmd_anonim(message: Message, state: FSMContext):
     lang = await get_lang(state)
@@ -155,10 +181,14 @@ async def cb_category(callback: CallbackQuery, state: FSMContext):
     lang = await get_lang(state)
     try:
         await callback.message.delete()
-    except Exception: pass
+    except Exception:
+        pass
     await callback.message.answer(get_text("anonim_start_msg", lang=lang))
     await state.set_state(Anonymous.waiting_for_message)
     await callback.answer()
+
+
+# ─── Receive anonymous message ────────────────────────────────────────────────
 
 @dp.message(Anonymous.waiting_for_message)
 async def receive_anonim(message: Message, state: FSMContext):
@@ -166,45 +196,58 @@ async def receive_anonim(message: Message, state: FSMContext):
     lang     = data.get("lang", "uz")
     category = data.get("category", "question")
     user_id  = message.from_user.id
+
     msg_id = await save_message(user_id, category)
     header = (
         f"{get_text('new_anonim_request', lang=lang)} ({category})\n"
         f"🆔 `{user_id}` | 📨 `#{msg_id}`"
     )
     markup = reply_button(user_id, msg_id)
+
+    # Barcha adminlarga yuborish
+    admin_ids = await get_all_admin_ids()
+    all_admins = list({SUPER_ADMIN_ID} | set(admin_ids))
+
     try:
-        if message.text:
-            await bot.send_message(ADMIN_ID, f"{header}:\n\n{message.text}", parse_mode="Markdown", reply_markup=markup)
-        elif message.photo:
-            caption = header + (f":\n\n{message.caption}" if message.caption else "")
-            await bot.send_photo(ADMIN_ID, message.photo[-1].file_id, caption=caption, parse_mode="Markdown", reply_markup=markup)
-        elif message.document:
-            caption = header + (f":\n\n{message.caption}" if message.caption else "")
-            await bot.send_document(ADMIN_ID, message.document.file_id, caption=caption, parse_mode="Markdown", reply_markup=markup)
-        elif message.video:
-            caption = header + (f":\n\n{message.caption}" if message.caption else "")
-            await bot.send_video(ADMIN_ID, message.video.file_id, caption=caption, parse_mode="Markdown", reply_markup=markup)
-        elif message.voice:
-            await bot.send_voice(ADMIN_ID, message.voice.file_id, caption=header, parse_mode="Markdown", reply_markup=markup)
-        elif message.audio:
-            await bot.send_audio(ADMIN_ID, message.audio.file_id, caption=header, parse_mode="Markdown", reply_markup=markup)
-        elif message.sticker:
-            await bot.send_sticker(ADMIN_ID, message.sticker.file_id, reply_markup=markup)
-            await bot.send_message(ADMIN_ID, header, parse_mode="Markdown")
-        else:
-            await message.answer(get_text("content_not_accepted", lang=lang))
-            return
+        for admin_id in all_admins:
+            try:
+                if message.text:
+                    await bot.send_message(admin_id, f"{header}:\n\n{message.text}", parse_mode="Markdown", reply_markup=markup)
+                elif message.photo:
+                    caption = header + (f":\n\n{message.caption}" if message.caption else "")
+                    await bot.send_photo(admin_id, message.photo[-1].file_id, caption=caption, parse_mode="Markdown", reply_markup=markup)
+                elif message.document:
+                    caption = header + (f":\n\n{message.caption}" if message.caption else "")
+                    await bot.send_document(admin_id, message.document.file_id, caption=caption, parse_mode="Markdown", reply_markup=markup)
+                elif message.video:
+                    caption = header + (f":\n\n{message.caption}" if message.caption else "")
+                    await bot.send_video(admin_id, message.video.file_id, caption=caption, parse_mode="Markdown", reply_markup=markup)
+                elif message.voice:
+                    await bot.send_voice(admin_id, message.voice.file_id, caption=header, parse_mode="Markdown", reply_markup=markup)
+                elif message.audio:
+                    await bot.send_audio(admin_id, message.audio.file_id, caption=header, parse_mode="Markdown", reply_markup=markup)
+                elif message.sticker:
+                    await bot.send_sticker(admin_id, message.sticker.file_id, reply_markup=markup)
+                    await bot.send_message(admin_id, header, parse_mode="Markdown")
+                else:
+                    await message.answer(get_text("content_not_accepted", lang=lang))
+                    return
+            except Exception:
+                pass  # Bitta admin xato bo'lsa, qolganlariga yuborishda davom et
+
         await message.answer(get_text("request_sent", lang=lang))
+
     except Exception:
         await message.answer(get_text("error_occurred", lang=lang))
     finally:
         await clear_state_keep_lang(state)
 
-# --- Admin actions ---
+
+# ─── Admin reply flow ─────────────────────────────────────────────────────────
 
 @dp.callback_query(lambda c: c.data and c.data.startswith(ADMIN_REPLY_PREFIX))
 async def cb_admin_reply(callback: CallbackQuery, state: FSMContext):
-    if callback.from_user.id != ADMIN_ID:
+    if not await is_admin(callback.from_user.id):
         await callback.answer("⛔ Ruxsat yo'q.", show_alert=True)
         return
     parts      = callback.data.split(ADMIN_REPLY_PREFIX, 1)[1].split(":")
@@ -213,7 +256,10 @@ async def cb_admin_reply(callback: CallbackQuery, state: FSMContext):
     await state.update_data(reply_to_user_id=user_id, reply_to_message_id=message_id)
     await state.set_state(Anonymous.waiting_for_admin_reply)
     lang = await get_lang(state)
-    await callback.message.answer(get_text("admin_reply_prompt", lang=lang).format(user_id=user_id), parse_mode="Markdown")
+    await callback.message.answer(
+        get_text("admin_reply_prompt", lang=lang).format(user_id=user_id),
+        parse_mode="Markdown"
+    )
     await callback.answer()
 
 @dp.message(Anonymous.waiting_for_admin_reply)
@@ -235,9 +281,12 @@ async def send_admin_reply(message: Message, state: FSMContext):
     finally:
         await clear_state_keep_lang(state)
 
+
+# ─── Ko'rib chiqdim ───────────────────────────────────────────────────────────
+
 @dp.callback_query(lambda c: c.data and c.data.startswith(REVIEWING_PREFIX))
 async def cb_reviewing(callback: CallbackQuery):
-    if callback.from_user.id != ADMIN_ID:
+    if not await is_admin(callback.from_user.id):
         await callback.answer("⛔ Ruxsat yo'q.", show_alert=True)
         return
     message_id = int(callback.data.split(REVIEWING_PREFIX, 1)[1])
@@ -246,44 +295,63 @@ async def cb_reviewing(callback: CallbackQuery):
     if user_id:
         try:
             await bot.send_message(user_id, "👁 Xabaringiz ko'rib chiqilmoqda. Tez orada javob beriladi.")
-        except Exception: pass
+        except Exception:
+            pass
     try:
         parts = callback.message.reply_markup.inline_keyboard[0][0].callback_data
         user_id_from_btn = int(parts.split(ADMIN_REPLY_PREFIX, 1)[1].split(":")[0])
         new_markup = InlineKeyboardMarkup(inline_keyboard=[[
-            InlineKeyboardButton(text="✉️ Javob berish", callback_data=f"{ADMIN_REPLY_PREFIX}{user_id_from_btn}:{message_id}")
+            InlineKeyboardButton(
+                text="✉️ Javob berish",
+                callback_data=f"{ADMIN_REPLY_PREFIX}{user_id_from_btn}:{message_id}"
+            )
         ]])
         await callback.message.edit_reply_markup(reply_markup=new_markup)
-    except Exception: pass
+    except Exception:
+        pass
     await callback.answer("✅ Foydalanuvchiga bildirishnoma yuborildi.", show_alert=True)
 
-# --- Stats & Broadcast ---
+
+# ─── /stats (admin only) ──────────────────────────────────────────────────────
 
 @dp.message(Command("stats"))
 async def cmd_stats(message: Message):
-    if message.from_user.id != ADMIN_ID: return
+    if not await is_admin(message.from_user.id):
+        return
     today        = await get_today_count()
     statuses     = await get_status_counts()
     categories   = await get_category_counts()
     active_users = await get_active_users_count()
-    pending  = statuses.get("pending", 0)
-    answered = statuses.get("answered", 0)
-    total    = pending + answered
-    cat_lines = "\n".join(f"  • {k}: {v} ta" for k, v in categories.items()) or "  — ma'lumot yo'q"
+
+    pending   = statuses.get("pending", 0)
+    reviewing = statuses.get("reviewing", 0)
+    answered  = statuses.get("answered", 0)
+    total     = pending + reviewing + answered
+
+    cat_lines = "\n".join(
+        f"  • {k}: {v} ta" for k, v in categories.items()
+    ) or "  — ma'lumot yo'q"
+
     text = (
         f"📊 *Bot statistikasi*\n\n"
         f"👥 Foydalanuvchilar: *{active_users}* ta\n\n"
         f"📨 Bugungi xabarlar: *{today}* ta\n"
         f"📦 Jami xabarlar: *{total}* ta\n\n"
         f"✅ Javob berilgan: *{answered}* ta\n"
+        f"👁 Ko'rib chiqilmoqda: *{reviewing}* ta\n"
         f"⏳ Kutayotganlar: *{pending}* ta\n\n"
         f"📁 Kategoriyalar:\n{cat_lines}"
     )
     await message.answer(text, parse_mode="Markdown", reply_markup=stats_filter_keyboard())
 
+
+# ─── Category filter ──────────────────────────────────────────────────────────
+
 @dp.callback_query(lambda c: c.data and c.data.startswith(FILTER_PREFIX))
 async def cb_filter_category(callback: CallbackQuery):
-    if callback.from_user.id != ADMIN_ID: return
+    if not await is_admin(callback.from_user.id):
+        await callback.answer("⛔ Ruxsat yo'q.", show_alert=True)
+        return
     category = callback.data.split(FILTER_PREFIX, 1)[1]
     messages = await get_messages_by_category(category)
     if not messages:
@@ -292,31 +360,88 @@ async def cb_filter_category(callback: CallbackQuery):
         return
     lines = [f"📁 *{category.upper()}* — so'nggi {len(messages)} ta xabar:\n"]
     for m in messages:
-        status_emoji = "✅" if m["status"] == "answered" else "⏳"
+        status_emoji = {"answered": "✅", "reviewing": "👁", "pending": "⏳"}.get(m["status"], "⏳")
         lines.append(f"{status_emoji} `#{m['id']}` | 🆔 `{m['user_id']}` | {m['sent_at'][:16]}")
     await callback.message.answer("\n".join(lines), parse_mode="Markdown")
     await callback.answer()
 
+
+# ─── /addadmin & /removeadmin (super admin only) ──────────────────────────────
+
+@dp.message(Command("addadmin"))
+async def cmd_addadmin(message: Message):
+    if message.from_user.id != SUPER_ADMIN_ID:
+        return
+    parts = message.text.split()
+    if len(parts) != 2 or not parts[1].isdigit():
+        await message.answer("📝 Ishlatish: `/addadmin 123456789`", parse_mode="Markdown")
+        return
+    new_admin_id = int(parts[1])
+    if new_admin_id == SUPER_ADMIN_ID:
+        await message.answer("⚠️ Siz allaqachon bosh adminsiz.")
+        return
+    await add_admin(new_admin_id)
+    await message.answer(f"✅ `{new_admin_id}` admin qilib qo'shildi.", parse_mode="Markdown")
+
+@dp.message(Command("removeadmin"))
+async def cmd_removeadmin(message: Message):
+    if message.from_user.id != SUPER_ADMIN_ID:
+        return
+    parts = message.text.split()
+    if len(parts) != 2 or not parts[1].isdigit():
+        await message.answer("📝 Ishlatish: `/removeadmin 123456789`", parse_mode="Markdown")
+        return
+    removed_id = int(parts[1])
+    await remove_admin(removed_id)
+    await message.answer(f"✅ `{removed_id}` adminlikdan olib tashlandi.", parse_mode="Markdown")
+
+@dp.message(Command("admins"))
+async def cmd_admins(message: Message):
+    if message.from_user.id != SUPER_ADMIN_ID:
+        return
+    admin_ids = await get_all_admin_ids()
+    if not admin_ids:
+        await message.answer(f"👤 Faqat bosh admin: `{SUPER_ADMIN_ID}`", parse_mode="Markdown")
+        return
+    lines = [f"👑 Bosh admin: `{SUPER_ADMIN_ID}`\n\n👤 Adminlar:"]
+    for aid in admin_ids:
+        lines.append(f"  • `{aid}`")
+    await message.answer("\n".join(lines), parse_mode="Markdown")
+
+
+# ─── /broadcast (super admin only) ───────────────────────────────────────────
+
 @dp.message(Command("broadcast"))
 async def cmd_broadcast(message: Message, state: FSMContext):
-    if message.from_user.id != ADMIN_ID: return
+    if message.from_user.id != SUPER_ADMIN_ID:
+        return
     user_ids = await get_all_user_ids()
     await state.update_data(broadcast_count=len(user_ids))
     await state.set_state(Anonymous.waiting_for_broadcast)
-    await message.answer(f"📢 *Broadcast*\nYubormoqchi bo'lgan xabaringizni yozing.\n👥 Jami *{len(user_ids)}* ta foydalanuvchiga yuboriladi.\n\n❌ Bekor qilish uchun /cancel", parse_mode="Markdown")
+    await message.answer(
+        f"📢 *Broadcast*\n\n"
+        f"Yubormoqchi bo'lgan xabaringizni yozing.\n"
+        f"👥 Jami *{len(user_ids)}* ta foydalanuvchiga yuboriladi.\n\n"
+        f"❌ Bekor qilish uchun /cancel",
+        parse_mode="Markdown"
+    )
 
 @dp.message(Command("cancel"))
 async def cmd_cancel(message: Message, state: FSMContext):
-    if await state.get_state() == Anonymous.waiting_for_broadcast:
+    current = await state.get_state()
+    if current == Anonymous.waiting_for_broadcast:
         await clear_state_keep_lang(state)
         await message.answer("❌ Broadcast bekor qilindi.")
+    else:
+        await message.answer("Bekor qilinadigan amal yo'q.")
 
 @dp.message(Anonymous.waiting_for_broadcast)
 async def send_broadcast(message: Message, state: FSMContext):
-    if message.from_user.id != ADMIN_ID: return
+    if message.from_user.id != SUPER_ADMIN_ID:
+        return
     user_ids = await get_all_user_ids()
     confirm_keyboard = InlineKeyboardMarkup(inline_keyboard=[[
-        InlineKeyboardButton(text="✅ Yuborish", callback_data=f"{BROADCAST_PREFIX}confirm"),
+        InlineKeyboardButton(text="✅ Yuborish",     callback_data=f"{BROADCAST_PREFIX}confirm"),
         InlineKeyboardButton(text="❌ Bekor qilish", callback_data=f"{BROADCAST_PREFIX}cancel"),
     ]])
     await state.update_data(
@@ -326,46 +451,76 @@ async def send_broadcast(message: Message, state: FSMContext):
         broadcast_document=message.document.file_id if message.document else None,
         broadcast_caption=message.caption,
     )
-    await message.answer(f"📢 *Preview*\nQuyidagi xabar *{len(user_ids)}* ta foydalanuvchiga yuboriladi:", parse_mode="Markdown")
+    await message.answer(
+        f"📢 *Preview*\nQuyidagi xabar *{len(user_ids)}* ta foydalanuvchiga yuboriladi:",
+        parse_mode="Markdown"
+    )
     await message.forward(message.from_user.id)
     await message.answer("——————————————", reply_markup=confirm_keyboard)
 
 @dp.callback_query(lambda c: c.data and c.data.startswith(BROADCAST_PREFIX))
 async def cb_broadcast(callback: CallbackQuery, state: FSMContext):
-    if callback.from_user.id != ADMIN_ID: return
+    if callback.from_user.id != SUPER_ADMIN_ID:
+        await callback.answer("⛔ Ruxsat yo'q.", show_alert=True)
+        return
     action = callback.data.split(BROADCAST_PREFIX, 1)[1]
     if action == "cancel":
         await clear_state_keep_lang(state)
+        try:
+            await callback.message.delete()
+        except Exception:
+            pass
         await callback.message.answer("❌ Broadcast bekor qilindi.")
         await callback.answer()
         return
-    data = await state.get_data()
+
+    data     = await state.get_data()
     user_ids = await get_all_user_ids()
-    text, photo, video, document, caption = data.get("broadcast_text"), data.get("broadcast_photo"), data.get("broadcast_video"), data.get("broadcast_document"), data.get("broadcast_caption")
-    try: await callback.message.delete()
-    except Exception: pass
+    text     = data.get("broadcast_text")
+    photo    = data.get("broadcast_photo")
+    video    = data.get("broadcast_video")
+    document = data.get("broadcast_document")
+    caption  = data.get("broadcast_caption")
+
+    try:
+        await callback.message.delete()
+    except Exception:
+        pass
+
     progress_msg = await callback.message.answer(f"⏳ Yuborilmoqda... 0 / {len(user_ids)}")
     success, failed = 0, 0
+
     for i, user_id in enumerate(user_ids):
         try:
-            if photo: await bot.send_photo(user_id, photo, caption=caption)
-            elif video: await bot.send_video(user_id, video, caption=caption)
-            elif document: await bot.send_document(user_id, document, caption=caption)
-            elif text: await bot.send_message(user_id, text)
+            if photo:       await bot.send_photo(user_id, photo, caption=caption)
+            elif video:     await bot.send_video(user_id, video, caption=caption)
+            elif document:  await bot.send_document(user_id, document, caption=caption)
+            elif text:      await bot.send_message(user_id, text)
             success += 1
-        except Exception: failed += 1
+        except Exception:
+            failed += 1
         if (i + 1) % 10 == 0:
-            try: await progress_msg.edit_text(f"⏳ Yuborilmoqda... {i + 1} / {len(user_ids)}")
-            except Exception: pass
+            try:
+                await progress_msg.edit_text(f"⏳ Yuborilmoqda... {i + 1} / {len(user_ids)}")
+            except Exception:
+                pass
         await asyncio.sleep(0.05)
-    await progress_msg.edit_text(f"✅ *Broadcast yakunlandi!*\n\n👥 Jami: {len(user_ids)}\n✅ Ok: {success}\n❌ Xato: {failed}", parse_mode="Markdown")
+
+    await progress_msg.edit_text(
+        f"✅ *Broadcast yakunlandi!*\n\n"
+        f"👥 Jami: {len(user_ids)} ta\n"
+        f"✅ Muvaffaqiyatli: {success} ta\n"
+        f"❌ Yuborilmadi: {failed} ta",
+        parse_mode="Markdown"
+    )
     await clear_state_keep_lang(state)
     await callback.answer()
 
-# --- Entry point ---
+
+# ─── Entry point ──────────────────────────────────────────────────────────────
+
 async def main():
     await init_db()
-    # Railway'da ulanish xatolarini oldini olish uchun skip_updates=True
     await bot.delete_webhook(drop_pending_updates=True)
     await dp.start_polling(bot)
 
