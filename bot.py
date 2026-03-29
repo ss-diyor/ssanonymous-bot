@@ -30,6 +30,7 @@ ADMIN_REPLY_PREFIX = "admin_reply_to_user_"
 FILTER_PREFIX      = "filter_cat_"
 BROADCAST_PREFIX   = "broadcast_"
 REVIEWING_PREFIX   = "reviewing_msg_"
+PENDING_PREFIX     = "pending_reply_"
 
 bot = Bot(token=TOKEN)
 dp  = Dispatcher()
@@ -539,10 +540,11 @@ async def send_broadcast(message: Message, state: FSMContext):
         broadcast_caption=message.caption,
     )
     await message.answer(
-        f"📢 *Preview*\nQuyidagi xabar *{len(user_ids)}* ta foydalanuvchiga yuboriladi:",
+        f"📢 *Preview* — *{len(user_ids)}* ta foydalanuvchiga yuboriladi:\n——————————————",
         parse_mode="Markdown"
     )
-    await message.forward(message.from_user.id)
+    # Xabarni copy sifatida ko'rsatish (forward o'rniga)
+    await message.copy_to(message.from_user.id)
     await message.answer("——————————————", reply_markup=confirm_keyboard)
 
 @dp.callback_query(lambda c: c.data and c.data.startswith(BROADCAST_PREFIX))
