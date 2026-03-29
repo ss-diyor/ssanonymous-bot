@@ -37,6 +37,15 @@ async def init_db():
                 added_at  TEXT    DEFAULT (datetime('now'))
             )
         """)
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS admin_messages (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                message_id  INTEGER NOT NULL,
+                admin_id    INTEGER NOT NULL,
+                tg_msg_id   INTEGER NOT NULL,
+                FOREIGN KEY (message_id) REFERENCES messages(id)
+            )
+        """)
         await db.commit()
 
 
@@ -84,9 +93,7 @@ async def mark_reviewing(message_id: int):
     """Xabar holatini 'reviewing' ga o'zgartiradi."""
     async with aiosqlite.connect(DB_PATH) as db:
         await db.execute("""
-            UPDATE messages
-            SET status = 'reviewing'
-            WHERE id = ?
+            UPDATE messages SET status = 'reviewing' WHERE id = ?
         """, (message_id,))
         await db.commit()
 
@@ -119,6 +126,28 @@ async def get_last_message_status(user_id: int) -> dict | None:
             "sent_at":     row[3],
             "answered_at": row[4],
         }
+
+
+# ─── Admin messages (sync tugmalar) ──────────────────────────────────────────
+
+async def save_admin_message(message_id: int, admin_id: int, tg_msg_id: int):
+    """Adminga yuborilgan Telegram xabar ID sini saqlaydi."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute("""
+            INSERT INTO admin_messages (message_id, admin_id, tg_msg_id)
+            VALUES (?, ?, ?)
+        """, (message_id, admin_id, tg_msg_id))
+        await db.commit()
+
+async def get_admin_messages(message_id: int) -> list[dict]:
+    """Xabar ID si bo'yicha barcha adminlarga yuborilgan tg_msg_id larni qaytaradi."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        cursor = await db.execute("""
+            SELECT admin_id, tg_msg_id FROM admin_messages
+            WHERE message_id = ?
+        """, (message_id,))
+        rows = await cursor.fetchall()
+        return [{"admin_id": r[0], "tg_msg_id": r[1]} for r in rows]
 
 
 # ─── Stats ────────────────────────────────────────────────────────────────────
