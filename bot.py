@@ -463,8 +463,7 @@ async def cmd_pending(message: Message):
         cat_map = {"suggestion": "Taklif", "complaint": "Shikoyat", "question": "Savol"}
         cat = cat_map.get(m["category"], m["category"])
         text = (
-            f"{status_emoji} *#{m['id']}* | {cat}
-"
+            f"{status_emoji} *#{m['id']}* | {cat}\n"
             f"🕐 {m['sent_at'][:16]}"
         )
         markup = InlineKeyboardMarkup(inline_keyboard=[[
