@@ -12,6 +12,7 @@ from database import (
     save_message, mark_answered, get_last_message_status,
     get_today_count, get_status_counts, get_category_counts,
     get_active_users_count, get_messages_by_category,
+    get_all_user_ids,
 )
 
 load_dotenv()
@@ -32,6 +33,7 @@ class Anonymous(StatesGroup):
     waiting_for_admin_reply  = State()
     waiting_for_language     = State()
     waiting_for_category     = State()
+    waiting_for_broadcast    = State()
 
 
 # ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -349,6 +351,145 @@ async def cb_filter_category(callback: CallbackQuery):
         )
 
     await callback.message.answer("\n".join(lines), parse_mode="Markdown")
+    await callback.answer()
+
+
+# ─── /broadcast (admin only) ─────────────────────────────────────────────────
+
+@dp.message(Command("broadcast"))
+async def cmd_broadcast(message: Message, state: FSMContext):
+    if message.from_user.id != ADMIN_ID:
+        return
+
+    user_ids = await get_all_user_ids()
+    await state.update_data(broadcast_count=len(user_ids))
+    await state.set_state(Anonymous.waiting_for_broadcast)
+    await message.answer(
+        f"📢 *Broadcast*\n\n"
+        f"Yubormoqchi bo'lgan xabaringizni yozing.\n"
+        f"👥 Jami *{len(user_ids)}* ta foydalanuvchiga yuboriladi.\n\n"
+        f"❌ Bekor qilish uchun /cancel",
+        parse_mode="Markdown"
+    )
+
+
+@dp.message(Command("cancel"))
+async def cmd_cancel(message: Message, state: FSMContext):
+    current_state = await state.get_state()
+    if current_state == Anonymous.waiting_for_broadcast:
+        await clear_state_keep_lang(state)
+        await message.answer("❌ Broadcast bekor qilindi.")
+    else:
+        await message.answer("Bekor qilinadigan amal yo'q.")
+
+
+@dp.message(Anonymous.waiting_for_broadcast)
+async def send_broadcast(message: Message, state: FSMContext):
+    if message.from_user.id != ADMIN_ID:
+        return
+
+    user_ids = await get_all_user_ids()
+
+    # Preview va tasdiqlash
+    confirm_keyboard = InlineKeyboardMarkup(inline_keyboard=[[
+        InlineKeyboardButton(text="✅ Yuborish",       callback_data=f"{BROADCAST_PREFIX}confirm"),
+        InlineKeyboardButton(text="❌ Bekor qilish",   callback_data=f"{BROADCAST_PREFIX}cancel"),
+    ]])
+
+    await state.update_data(
+        broadcast_text=message.text,
+        broadcast_photo=message.photo[-1].file_id if message.photo else None,
+        broadcast_video=message.video.file_id if message.video else None,
+        broadcast_document=message.document.file_id if message.document else None,
+        broadcast_caption=message.caption,
+    )
+
+    preview_text = (
+        f"📢 *Preview*\n\n"
+        f"Quyidagi xabar *{len(user_ids)}* ta foydalanuvchiga yuboriladi:\n"
+        f"——————————————\n"
+    )
+    await message.answer(preview_text, parse_mode="Markdown")
+
+    # Original xabarni preview sifatida forward qilish
+    await message.forward(message.from_user.id)
+    await message.answer("——————————————", reply_markup=confirm_keyboard)
+
+
+@dp.callback_query(lambda c: c.data and c.data.startswith(BROADCAST_PREFIX))
+async def cb_broadcast(callback: CallbackQuery, state: FSMContext):
+    if callback.from_user.id != ADMIN_ID:
+        await callback.answer("⛔ Ruxsat yo'q.", show_alert=True)
+        return
+
+    action = callback.data.split(BROADCAST_PREFIX, 1)[1]
+
+    if action == "cancel":
+        await clear_state_keep_lang(state)
+        try:
+            await callback.message.delete()
+        except Exception:
+            pass
+        await callback.message.answer("❌ Broadcast bekor qilindi.")
+        await callback.answer()
+        return
+
+    # Confirm — yuborish
+    data     = await state.get_data()
+    user_ids = await get_all_user_ids()
+
+    text      = data.get("broadcast_text")
+    photo     = data.get("broadcast_photo")
+    video     = data.get("broadcast_video")
+    document  = data.get("broadcast_document")
+    caption   = data.get("broadcast_caption")
+
+    try:
+        await callback.message.delete()
+    except Exception:
+        pass
+
+    progress_msg = await callback.message.answer(
+        f"⏳ Yuborilmoqda... 0 / {len(user_ids)}"
+    )
+
+    success = 0
+    failed  = 0
+
+    for i, user_id in enumerate(user_ids):
+        try:
+            if photo:
+                await bot.send_photo(user_id, photo, caption=caption)
+            elif video:
+                await bot.send_video(user_id, video, caption=caption)
+            elif document:
+                await bot.send_document(user_id, document, caption=caption)
+            elif text:
+                await bot.send_message(user_id, text)
+            success += 1
+        except Exception:
+            failed += 1
+
+        # Har 10 foydalanuvchida progress yangilash
+        if (i + 1) % 10 == 0:
+            try:
+                await progress_msg.edit_text(
+                    f"⏳ Yuborilmoqda... {i + 1} / {len(user_ids)}"
+                )
+            except Exception:
+                pass
+
+        await asyncio.sleep(0.05)  # Telegram rate limit
+
+    await progress_msg.edit_text(
+        f"✅ *Broadcast yakunlandi!*\n\n"
+        f"👥 Jami: {len(user_ids)} ta\n"
+        f"✅ Muvaffaqiyatli: {success} ta\n"
+        f"❌ Yuborilmadi: {failed} ta",
+        parse_mode="Markdown"
+    )
+
+    await clear_state_keep_lang(state)
     await callback.answer()
 
 
