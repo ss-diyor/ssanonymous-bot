@@ -138,3 +138,10 @@ async def get_messages_by_category(category: str) -> list[dict]:
             {"id": r[0], "user_id": r[1], "status": r[2], "sent_at": r[3]}
             for r in rows
         ]
+
+async def get_all_user_ids() -> list[int]:
+    """Barcha foydalanuvchilar ID sini qaytaradi."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        cursor = await db.execute("SELECT user_id FROM users")
+        rows = await cursor.fetchall()
+        return [row[0] for row in rows]
