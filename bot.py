@@ -45,6 +45,13 @@ async def get_lang(state: FSMContext) -> str:
     data = await state.get_data()
     return data.get("lang", "uz")
 
+async def clear_state_keep_lang(state: FSMContext):
+    """State'ni tozalaydi, lekin tanlangan tilni saqlab qoladi."""
+    data = await state.get_data()
+    lang = data.get("lang", "uz")
+    await state.clear()
+    await state.update_data(lang=lang)
+
 
 # ─── /start ───────────────────────────────────────────────────────────────────
 
@@ -174,7 +181,7 @@ async def receive_anonim(message: Message, state: FSMContext):
         await message.answer(get_text("error_occurred", lang=lang))
 
     finally:
-        await state.clear()
+        await clear_state_keep_lang(state)
 
 
 # ─── Admin reply flow ─────────────────────────────────────────────────────────
@@ -215,7 +222,7 @@ async def send_admin_reply(message: Message, state: FSMContext):
         await message.answer(f"{get_text('error_occurred', lang=lang)}: {e}")
 
     finally:
-        await state.clear()
+        await clear_state_keep_lang(state)
 
 
 # ─── Entry point ──────────────────────────────────────────────────────────────
