@@ -16,6 +16,7 @@ from database import (
     get_all_user_ids,
     get_all_admin_ids, add_admin, remove_admin,
     save_admin_message, get_admin_messages,
+    get_pending_messages,
 )
 
 load_dotenv()
@@ -440,6 +441,60 @@ async def cmd_admins(message: Message):
     for aid in admin_ids:
         lines.append(f"  • `{aid}`")
     await message.answer("\n".join(lines), parse_mode="Markdown")
+
+
+# ─── /pending (admin only) ───────────────────────────────────────────────────
+
+@dp.message(Command("pending"))
+async def cmd_pending(message: Message):
+    if not await is_admin(message.from_user.id):
+        return
+
+    msgs = await get_pending_messages()
+
+    if not msgs:
+        await message.answer("✅ Javob kutayotgan xabar yo'q!")
+        return
+
+    await message.answer(f"⏳ *Javob kutayotgan xabarlar — {len(msgs)} ta*", parse_mode="Markdown")
+
+    for m in msgs:
+        status_emoji = "👁" if m["status"] == "reviewing" else "⏳"
+        cat_map = {"suggestion": "Taklif", "complaint": "Shikoyat", "question": "Savol"}
+        cat = cat_map.get(m["category"], m["category"])
+        text = (
+            f"{status_emoji} *#{m['id']}* | {cat}
+"
+            f"🕐 {m['sent_at'][:16]}"
+        )
+        markup = InlineKeyboardMarkup(inline_keyboard=[[
+            InlineKeyboardButton(
+                text="✉️ Javob berish",
+                callback_data=f"{PENDING_PREFIX}{m['user_id']}:{m['id']}"
+            )
+        ]])
+        await message.answer(text, parse_mode="Markdown", reply_markup=markup)
+
+
+@dp.callback_query(lambda c: c.data and c.data.startswith(PENDING_PREFIX))
+async def cb_pending_reply(callback: CallbackQuery, state: FSMContext):
+    if not await is_admin(callback.from_user.id):
+        await callback.answer("⛔ Ruxsat yo'q.", show_alert=True)
+        return
+
+    parts      = callback.data.split(PENDING_PREFIX, 1)[1].split(":")
+    user_id    = int(parts[0])
+    message_id = int(parts[1])
+
+    await state.update_data(reply_to_user_id=user_id, reply_to_message_id=message_id)
+    await state.set_state(Anonymous.waiting_for_admin_reply)
+
+    lang = await get_lang(state)
+    await callback.message.answer(
+        get_text("admin_reply_prompt", lang=lang).format(user_id=user_id),
+        parse_mode="Markdown"
+    )
+    await callback.answer()
 
 
 # ─── /broadcast (super admin only) ───────────────────────────────────────────
