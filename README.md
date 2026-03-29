@@ -1,6 +1,6 @@
 # 🤖 ssanonymous-bot
 
-> **O'zbek** | [**English**](#english)
+> **O'zbek** | **English**
 
 ---
 
@@ -77,7 +77,7 @@ ssanonymous-bot/
 
 #### 1. Repozitoriyani klonlash
 ```bash
-git clone https://github.com/username/ssanonymous-bot.git
+git clone https://github.com/ss-diyor/ssanonymous-bot.git
 cd ssanonymous-bot
 ```
 
@@ -193,7 +193,7 @@ ssanonymous-bot/
 
 #### 1. Clone the repository
 ```bash
-git clone https://github.com/username/ssanonymous-bot.git
+git clone https://github.com/ss-diyor/ssanonymous-bot.git
 cd ssanonymous-bot
 ```
 
