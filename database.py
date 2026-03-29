@@ -74,6 +74,25 @@ async def mark_answered(message_id: int):
         """, (now_tashkent(), message_id))
         await db.commit()
 
+async def mark_reviewing(message_id: int):
+    """Xabar holatini 'reviewing' ga o'zgartiradi."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute("""
+            UPDATE messages
+            SET status = 'reviewing'
+            WHERE id = ?
+        """, (message_id,))
+        await db.commit()
+
+async def get_message_user_id(message_id: int) -> int | None:
+    """Xabar ID si bo'yicha foydalanuvchi ID sini qaytaradi."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        cursor = await db.execute(
+            "SELECT user_id FROM messages WHERE id = ?", (message_id,)
+        )
+        row = await cursor.fetchone()
+        return row[0] if row else None
+
 async def get_last_message_status(user_id: int) -> dict | None:
     """Foydalanuvchining oxirgi xabari holatini qaytaradi."""
     async with aiosqlite.connect(DB_PATH) as db:
