@@ -1,7 +1,12 @@
 import aiosqlite
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 
 DB_PATH = "bot.db"
+TASHKENT = timezone(timedelta(hours=5))
+
+
+def now_tashkent() -> str:
+    return datetime.now(TASHKENT).strftime("%Y-%m-%d %H:%M:%S")
 
 
 # ─── Init ─────────────────────────────────────────────────────────────────────
@@ -21,7 +26,7 @@ async def init_db():
                 user_id     INTEGER NOT NULL,
                 category    TEXT    NOT NULL,
                 status      TEXT    NOT NULL DEFAULT 'pending',
-                sent_at     TEXT    DEFAULT (datetime('now')),
+                sent_at     TEXT    DEFAULT NULL,
                 answered_at TEXT    DEFAULT NULL,
                 FOREIGN KEY (user_id) REFERENCES users(user_id)
             )
@@ -53,9 +58,9 @@ async def save_message(user_id: int, category: str) -> int:
     """Xabarni DBga saqlaydi va uning id sini qaytaradi."""
     async with aiosqlite.connect(DB_PATH) as db:
         cursor = await db.execute("""
-            INSERT INTO messages (user_id, category)
-            VALUES (?, ?)
-        """, (user_id, category))
+            INSERT INTO messages (user_id, category, sent_at)
+            VALUES (?, ?, ?)
+        """, (user_id, category, now_tashkent()))
         await db.commit()
         return cursor.lastrowid
 
@@ -64,9 +69,9 @@ async def mark_answered(message_id: int):
     async with aiosqlite.connect(DB_PATH) as db:
         await db.execute("""
             UPDATE messages
-            SET status = 'answered', answered_at = datetime('now')
+            SET status = 'answered', answered_at = ?
             WHERE id = ?
-        """, (message_id,))
+        """, (now_tashkent(), message_id))
         await db.commit()
 
 async def get_last_message_status(user_id: int) -> dict | None:
@@ -97,7 +102,7 @@ async def get_today_count() -> int:
     async with aiosqlite.connect(DB_PATH) as db:
         cursor = await db.execute("""
             SELECT COUNT(*) FROM messages
-            WHERE DATE(sent_at) = DATE('now')
+            WHERE DATE(sent_at) = DATE('now', '+5 hours')
         """)
         row = await cursor.fetchone()
         return row[0] if row else 0
