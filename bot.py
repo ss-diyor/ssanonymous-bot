@@ -15,6 +15,7 @@ from database import (
     get_active_users_count, get_messages_by_category,
     get_all_user_ids,
     get_all_admin_ids, add_admin, remove_admin,
+    save_admin_message, get_admin_messages,
 )
 
 load_dotenv()
@@ -208,30 +209,40 @@ async def receive_anonim(message: Message, state: FSMContext):
     admin_ids = await get_all_admin_ids()
     all_admins = list({SUPER_ADMIN_ID} | set(admin_ids))
 
+    # content_not_accepted tekshiruvi
+    if not (message.text or message.photo or message.document or
+            message.video or message.voice or message.audio or message.sticker):
+        await message.answer(get_text("content_not_accepted", lang=lang))
+        await clear_state_keep_lang(state)
+        return
+
     try:
         for admin_id in all_admins:
             try:
+                sent = None
                 if message.text:
-                    await bot.send_message(admin_id, f"{header}:\n\n{message.text}", parse_mode="Markdown", reply_markup=markup)
+                    sent = await bot.send_message(admin_id, f"{header}:\n\n{message.text}", parse_mode="Markdown", reply_markup=markup)
                 elif message.photo:
                     caption = header + (f":\n\n{message.caption}" if message.caption else "")
-                    await bot.send_photo(admin_id, message.photo[-1].file_id, caption=caption, parse_mode="Markdown", reply_markup=markup)
+                    sent = await bot.send_photo(admin_id, message.photo[-1].file_id, caption=caption, parse_mode="Markdown", reply_markup=markup)
                 elif message.document:
                     caption = header + (f":\n\n{message.caption}" if message.caption else "")
-                    await bot.send_document(admin_id, message.document.file_id, caption=caption, parse_mode="Markdown", reply_markup=markup)
+                    sent = await bot.send_document(admin_id, message.document.file_id, caption=caption, parse_mode="Markdown", reply_markup=markup)
                 elif message.video:
                     caption = header + (f":\n\n{message.caption}" if message.caption else "")
-                    await bot.send_video(admin_id, message.video.file_id, caption=caption, parse_mode="Markdown", reply_markup=markup)
+                    sent = await bot.send_video(admin_id, message.video.file_id, caption=caption, parse_mode="Markdown", reply_markup=markup)
                 elif message.voice:
-                    await bot.send_voice(admin_id, message.voice.file_id, caption=header, parse_mode="Markdown", reply_markup=markup)
+                    sent = await bot.send_voice(admin_id, message.voice.file_id, caption=header, parse_mode="Markdown", reply_markup=markup)
                 elif message.audio:
-                    await bot.send_audio(admin_id, message.audio.file_id, caption=header, parse_mode="Markdown", reply_markup=markup)
+                    sent = await bot.send_audio(admin_id, message.audio.file_id, caption=header, parse_mode="Markdown", reply_markup=markup)
                 elif message.sticker:
-                    await bot.send_sticker(admin_id, message.sticker.file_id, reply_markup=markup)
+                    sent = await bot.send_sticker(admin_id, message.sticker.file_id, reply_markup=markup)
                     await bot.send_message(admin_id, header, parse_mode="Markdown")
-                else:
-                    await message.answer(get_text("content_not_accepted", lang=lang))
-                    return
+
+                # Yuborilgan tg_msg_id ni DBga saqlash
+                if sent:
+                    await save_admin_message(msg_id, admin_id, sent.message_id)
+
             except Exception:
                 pass  # Bitta admin xato bo'lsa, qolganlariga yuborishda davom et
 
@@ -275,6 +286,17 @@ async def send_admin_reply(message: Message, state: FSMContext):
         await bot.send_message(user_id, f"{get_text('admin_answer', lang=lang)}:\n\n{message.text}")
         if message_id:
             await mark_answered(message_id)
+            # Barcha adminlardagi tugmalarni o'chirish (javob berildi)
+            admin_msgs = await get_admin_messages(message_id)
+            for am in admin_msgs:
+                try:
+                    await bot.edit_message_reply_markup(
+                        chat_id=am["admin_id"],
+                        message_id=am["tg_msg_id"],
+                        reply_markup=None
+                    )
+                except Exception:
+                    pass
         await message.answer(get_text("admin_reply_sent", lang=lang))
     except Exception as e:
         await message.answer(f"{get_text('error_occurred', lang=lang)}: {e}")
@@ -291,24 +313,35 @@ async def cb_reviewing(callback: CallbackQuery):
         return
     message_id = int(callback.data.split(REVIEWING_PREFIX, 1)[1])
     await mark_reviewing(message_id)
+
+    # Foydalanuvchiga bildirishnoma
     user_id = await get_message_user_id(message_id)
     if user_id:
         try:
             await bot.send_message(user_id, "👁 Xabaringiz ko'rib chiqilmoqda. Tez orada javob beriladi.")
         except Exception:
             pass
-    try:
-        parts = callback.message.reply_markup.inline_keyboard[0][0].callback_data
-        user_id_from_btn = int(parts.split(ADMIN_REPLY_PREFIX, 1)[1].split(":")[0])
-        new_markup = InlineKeyboardMarkup(inline_keyboard=[[
-            InlineKeyboardButton(
-                text="✉️ Javob berish",
-                callback_data=f"{ADMIN_REPLY_PREFIX}{user_id_from_btn}:{message_id}"
+
+    # Barcha adminlardagi xabar tugmalarini yangilash
+    admin_msgs = await get_admin_messages(message_id)
+    parts = callback.message.reply_markup.inline_keyboard[0][0].callback_data
+    user_id_from_btn = int(parts.split(ADMIN_REPLY_PREFIX, 1)[1].split(":")[0])
+    new_markup = InlineKeyboardMarkup(inline_keyboard=[[
+        InlineKeyboardButton(
+            text="✉️ Javob berish",
+            callback_data=f"{ADMIN_REPLY_PREFIX}{user_id_from_btn}:{message_id}"
+        )
+    ]])
+    for am in admin_msgs:
+        try:
+            await bot.edit_message_reply_markup(
+                chat_id=am["admin_id"],
+                message_id=am["tg_msg_id"],
+                reply_markup=new_markup
             )
-        ]])
-        await callback.message.edit_reply_markup(reply_markup=new_markup)
-    except Exception:
-        pass
+        except Exception:
+            pass
+
     await callback.answer("✅ Foydalanuvchiga bildirishnoma yuborildi.", show_alert=True)
 
 
