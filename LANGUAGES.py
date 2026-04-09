@@ -2,7 +2,7 @@ LANGUAGES = {
     'uz': {
         'welcome': "Assalomu alaykum {mention}! \n\nBo'stonliq tuman ixtisoslashtirilgan maktabining murojaatlar uchun botiga xush kelibsiz.\n\n📨 Anonim murojaat: /anonim\nℹ️ Maktab haqida: /info\n🔗 Telegram kanal va Discord server: /links",
         'info_text': "🏫 Bizning maktabimiz 2022-yilda tashkil etilgan bo'lib, asosiy maqsad o'quvchilarga sifatli ta'lim va keng imkoniyatlar yaratishdir. Maktabimiz zamonaviy o'quv muassasasi bo'lib 5–11-sinflar uchun yuqori sifatli ta'lim beradi. Maktab jamoasi do'stona hamkorlikka tayyor.\n\nMaktabimizda:\n- Zamonaviy fanlar darslari (matematika, fizika, ingliz tili, kimyo, biologiya va boshqalar)\n- Sport va ijodiy to'garaklar.\n- Tanlov va loyihalarda qatnashish imkoniyati mavjud.\n\nSiz biz bilan bilim va do'stlikni rivojlantirasiz.\nKo'proq yangiliklar uchun Telegram kanalimizga qo'shiling!",
-        'links_text': "📢 Telegram kanal:\nhttps://t.me/Bustanlikspecializedschool\n\n🎮 Discord server (run and managed by senior student):\nhttps://discord.gg/RsSFaC8zX",
+        'links_text': "📢 Telegram kanal:\nhttps://t.me/Bustanlikspecializedschool\n\n🎮 Discord server (run and managed by senior student ):\nhttps://discord.gg/RsSFaC8zX",
         'anonim_start_msg': "✍️ Murojaatingizni yozishingiz mumkin.\n\n📎 Matn, rasm, ovozli xabar yoki fayl yuborishingiz mumkin.",
         'anonim_category_prompt': "Murojaatingiz turini tanlang:",
         'category_suggestion': "Taklif",
@@ -28,11 +28,14 @@ LANGUAGES = {
         'status_pending': "Kutilmoqda",
         'status_answered': "Javob berildi",
         'status_reviewing': "Ko'rib chiqilmoqda",
+        'rate_response': "Iltimos, admin javobini baholang:",
+        'rating_thanks': "Bahoyingiz uchun rahmat!",
+        'avg_rating': "O'rtacha baho",
     },
     'ru': {
         'welcome': "Привет {mention}! \n\nДобро пожаловать в бот для обращений Специализированной школы Бустaнликского района.\n\n📨 Анонимное обращение: /anonim\nℹ️ О школе: /info\n🔗 Telegram канал и Discord сервер: /links",
-        'info_text': "🏫 Наша школа была основана в 2022 году, и основная цель - предоставить учащимся качественное образование и широкие возможности. Наша школа - это современное учебное заведение, предоставляющее высококачественное образование для 5-11 классов. Коллектив школы готов к дружескому сотрудничеству.\n\nВ нашей школе:\n- Современные уроки по предметам (математика, физика, английский язык, химия, биология и другие)\n- Спортивные и творческие кружки.\n- Возможность участвовать в конкурсах и проектах.\n\nВы будете развивать знания и дружбу с нами.\nПрисоединяйтесь к нашему Telegram-каналу для получения дополнительных новостей!",
-        'links_text': "📢 Telegram канал:\nhttps://t.me/Bustanlikspecializedschool\n\n🎮 Discord сервер (управляется старшим учеником):\nhttps://discord.gg/RsSFaC8zX",
+        'info_text': "🏫 Наша школа была основана в 2022 году, и основная цель - предоставить учащимся качественное образование и широкие возможности. Наша школа - это современное учебное заведение, предоставляющее высококачественное образование для 5-11 классов. Коллектив школы готов к дружескому сотрудничеству.\n\nВ нашей школе:\n- Современные уроки по предметам (математика, физика, английский язык, химия, биология и другие )\n- Спортивные и творческие кружки.\n- Возможность участвовать в конкурсах и проектах.\n\nВы будете развивать знания и дружбу с нами.\nПрисоединяйтесь к нашему Telegram-каналу для получения дополнительных новостей!",
+        'links_text': "📢 Telegram канал:\nhttps://t.me/Bustanlikspecializedschool\n\n🎮 Discord сервер (управляется старшим учеником ):\nhttps://discord.gg/RsSFaC8zX",
         'anonim_start_msg': "✍️ Вы можете написать свое обращение.\n\n📎 Вы можете отправить текст, изображение, голосовое сообщение или файл.",
         'anonim_category_prompt': "Выберите тип вашего обращения:",
         'category_suggestion': "Предложение",
@@ -58,11 +61,14 @@ LANGUAGES = {
         'status_pending': "Ожидает ответа",
         'status_answered': "Отвечено",
         'status_reviewing': "Рассматривается",
+        'rate_response': "Пожалуйста, оцените ответ администратора:",
+        'rating_thanks': "Спасибо за вашу оценку!",
+        'avg_rating': "Средняя оценка",
     },
     'en': {
         'welcome': "Hello {mention}! \n\nWelcome to the anonymous appeal bot of Bustanlik District Specialized School.\n\n📨 Anonymous appeal: /anonim\nℹ️ About the school: /info\n🔗 Telegram channel and Discord server: /links",
-        'info_text': "🏫 Our school was established in 2022, and the main goal is to provide students with quality education and wide opportunities. Our school is a modern educational institution providing high-quality education for grades 5-11. The school team is ready for friendly cooperation.\n\nIn our school:\n- Modern subject lessons (mathematics, physics, English, chemistry, biology, and others)\n- Sports and creative clubs.\n- Opportunity to participate in competitions and projects.\n\nYou will develop knowledge and friendship with us.\nJoin our Telegram channel for more news!",
-        'links_text': "📢 Telegram channel:\nhttps://t.me/Bustanlikspecializedschool\n\n🎮 Discord server (run and managed by senior student):\nhttps://discord.gg/RsSFaC8zX",
+        'info_text': "🏫 Our school was established in 2022, and the main goal is to provide students with quality education and wide opportunities. Our school is a modern educational institution providing high-quality education for grades 5-11. The school team is ready for friendly cooperation.\n\nIn our school:\n- Modern subject lessons (mathematics, physics, English, chemistry, biology, and others )\n- Sports and creative clubs.\n- Opportunity to participate in competitions and projects.\n\nYou will develop knowledge and friendship with us.\nJoin our Telegram channel for more news!",
+        'links_text': "📢 Telegram channel:\nhttps://t.me/Bustanlikspecializedschool\n\n🎮 Discord server (run and managed by senior student ):\nhttps://discord.gg/RsSFaC8zX",
         'anonim_start_msg': "✍️ You can write your appeal.\n\n📎 You can send text, image, voice message, or file.",
         'anonim_category_prompt': "Select the type of your appeal:",
         'category_suggestion': "Suggestion",
@@ -88,8 +94,11 @@ LANGUAGES = {
         'status_pending': "Pending",
         'status_answered': "Answered",
         'status_reviewing': "Under review",
+        'rate_response': "Please rate the administrator's response:",
+        'rating_thanks': "Thank you for your rating!",
+        'avg_rating': "Average rating",
     }
 }
 
-def get_text(key, lang='uz'):
+def get_text(key, lang='uz' ):
     return LANGUAGES.get(lang, LANGUAGES['uz']).get(key, LANGUAGES['uz'][key])
