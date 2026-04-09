@@ -28,6 +28,7 @@ async def init_db():
                 status      TEXT    NOT NULL DEFAULT 'pending',
                 sent_at     TEXT    DEFAULT NULL,
                 answered_at TEXT    DEFAULT NULL,
+                rating      INTEGER DEFAULT NULL,
                 FOREIGN KEY (user_id) REFERENCES users(user_id)
             )
         """)
@@ -96,6 +97,21 @@ async def mark_reviewing(message_id: int):
             UPDATE messages SET status = 'reviewing' WHERE id = ?
         """, (message_id,))
         await db.commit()
+
+async def set_message_rating(message_id: int, rating: int):
+    """Xabarga baho beradi."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute("""
+            UPDATE messages SET rating = ? WHERE id = ?
+        """, (rating, message_id))
+        await db.commit()
+
+async def get_average_rating() -> float:
+    """Barcha xabarlarning o'rtacha bahosini qaytaradi."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        cursor = await db.execute("SELECT AVG(rating) FROM messages WHERE rating IS NOT NULL")
+        row = await cursor.fetchone()
+        return round(row[0], 1) if row and row[0] else 0.0
 
 async def get_message_user_id(message_id: int) -> int | None:
     """Xabar ID si bo'yicha foydalanuvchi ID sini qaytaradi."""
