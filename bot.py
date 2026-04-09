@@ -10,7 +10,7 @@ from LANGUAGES import get_text
 from database import (
     init_db, upsert_user,
     save_message, mark_answered, mark_reviewing, get_message_user_id,
-    get_last_message_status,
+    get_last_message_status, set_message_rating, get_average_rating,
     get_today_count, get_status_counts, get_category_counts,
     get_active_users_count, get_messages_by_category,
     get_all_user_ids,
@@ -31,6 +31,7 @@ FILTER_PREFIX      = "filter_cat_"
 BROADCAST_PREFIX   = "broadcast_"
 REVIEWING_PREFIX   = "reviewing_msg_"
 PENDING_PREFIX     = "pending_reply_"
+RATING_PREFIX      = "rate_msg_"
 
 bot = Bot(token=TOKEN)
 dp  = Dispatcher()
@@ -73,6 +74,12 @@ def stats_filter_keyboard() -> InlineKeyboardMarkup:
         [InlineKeyboardButton(text="⚠️ Shikoyatlar", callback_data=f"{FILTER_PREFIX}complaint")],
         [InlineKeyboardButton(text="❓ Savollar",    callback_data=f"{FILTER_PREFIX}question")],
     ])
+
+def rating_keyboard(message_id: int) -> InlineKeyboardMarkup:
+    buttons = []
+    for i in range(1, 6):
+        buttons.append(InlineKeyboardButton(text=f"{i} ⭐", callback_data=f"{RATING_PREFIX}{message_id}:{i}"))
+    return InlineKeyboardMarkup(inline_keyboard=[buttons])
 
 async def get_lang(state: FSMContext) -> str:
     data = await state.get_data()
@@ -244,9 +251,8 @@ async def receive_anonim(message: Message, state: FSMContext):
                 # Yuborilgan tg_msg_id ni DBga saqlash
                 if sent:
                     await save_admin_message(msg_id, admin_id, sent.message_id)
-
             except Exception:
-                pass  # Bitta admin xato bo'lsa, qolganlariga yuborishda davom et
+                continue
 
         await message.answer(get_text("request_sent", lang=lang))
 
@@ -287,6 +293,11 @@ async def send_admin_reply(message: Message, state: FSMContext):
             return
         await bot.send_message(user_id, f"{get_text('admin_answer', lang=lang)}:\n\n{message.text}")
         if message_id:
+            await bot.send_message(
+                user_id, 
+                get_text("rate_response", lang=lang), 
+                reply_markup=rating_keyboard(message_id)
+            )
             await mark_answered(message_id)
             # Barcha adminlardagi tugmalarni o'chirish (javob berildi)
             admin_msgs = await get_admin_messages(message_id)
@@ -357,6 +368,7 @@ async def cmd_stats(message: Message):
     statuses     = await get_status_counts()
     categories   = await get_category_counts()
     active_users = await get_active_users_count()
+    avg_rating   = await get_average_rating()
 
     pending   = statuses.get("pending", 0)
     reviewing = statuses.get("reviewing", 0)
@@ -375,6 +387,7 @@ async def cmd_stats(message: Message):
         f"✅ Javob berilgan: *{answered}* ta\n"
         f"👁 Ko'rib chiqilmoqda: *{reviewing}* ta\n"
         f"⏳ Kutayotganlar: *{pending}* ta\n\n"
+        f"⭐ O'rtacha baho: *{avg_rating}* / 5\n\n"
         f"📁 Kategoriyalar:\n{cat_lines}"
     )
     await message.answer(text, parse_mode="Markdown", reply_markup=stats_filter_keyboard())
@@ -398,7 +411,6 @@ async def cb_filter_category(callback: CallbackQuery):
         status_emoji = {"answered": "✅", "reviewing": "👁", "pending": "⏳"}.get(m["status"], "⏳")
         lines.append(f"{status_emoji} `#{m['id']}` | 🆔 `{m['user_id']}` | {m['sent_at'][:16]}")
     await callback.message.answer("\n".join(lines), parse_mode="Markdown")
-    await callback.answer()
 
 
 # ─── /addadmin & /removeadmin (super admin only) ──────────────────────────────
@@ -494,6 +506,38 @@ async def cb_pending_reply(callback: CallbackQuery, state: FSMContext):
         get_text("admin_reply_prompt", lang=lang).format(user_id=user_id),
         parse_mode="Markdown"
     )
+    await callback.answer()
+
+
+# ─── Rating Handler ───────────────────────────────────────────────────────────
+
+@dp.callback_query(lambda c: c.data and c.data.startswith(RATING_PREFIX))
+async def cb_rating(callback: CallbackQuery, state: FSMContext):
+    data = callback.data.split(RATING_PREFIX, 1)[1]
+    msg_id, rating = map(int, data.split(":"))
+    
+    await set_message_rating(msg_id, rating)
+    lang = await get_lang(state)
+    
+    try:
+        await callback.message.edit_text(get_text("rating_thanks", lang=lang))
+    except Exception:
+        await callback.message.answer(get_text("rating_thanks", lang=lang))
+        await callback.message.delete()
+    
+    # Adminlarga bildirishnoma yuborish
+    admin_ids = await get_all_admin_ids()
+    all_admins = list({SUPER_ADMIN_ID} | set(admin_ids))
+    for admin_id in all_admins:
+        try:
+            await bot.send_message(
+                admin_id, 
+                f"⭐ Yangi baho: `#{msg_id}` murojaatiga {rating} ball berildi.",
+                parse_mode="Markdown"
+            )
+        except Exception:
+            pass
+            
     await callback.answer()
 
 
