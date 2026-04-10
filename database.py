@@ -17,7 +17,8 @@ async def init_db():
             CREATE TABLE IF NOT EXISTS users (
                 user_id     INTEGER PRIMARY KEY,
                 lang        TEXT    DEFAULT 'uz',
-                joined_at   TEXT    DEFAULT (datetime('now'))
+                joined_at   TEXT    DEFAULT (datetime('now')),
+                is_blocked  INTEGER DEFAULT 0
             )
         """)
         await db.execute("""
@@ -63,9 +64,22 @@ async def upsert_user(user_id: int, lang: str):
 
 async def get_active_users_count() -> int:
     async with aiosqlite.connect(DB_PATH) as db:
-        cursor = await db.execute("SELECT COUNT(*) FROM users")
+        cursor = await db.execute("SELECT COUNT(*) FROM users WHERE is_blocked = 0")
         row = await cursor.fetchone()
         return row[0] if row else 0
+
+async def is_user_blocked(user_id: int) -> bool:
+    """Foydalanuvchi bloklanganmi tekshiradi."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        cursor = await db.execute("SELECT is_blocked FROM users WHERE user_id = ?", (user_id,))
+        row = await cursor.fetchone()
+        return bool(row[0]) if row else False
+
+async def set_user_block_status(user_id: int, status: int):
+    """Foydalanuvchini bloklaydi yoki blokdan chiqaradi."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute("UPDATE users SET is_blocked = ? WHERE user_id = ?", (status, user_id))
+        await db.commit()
 
 
 # ─── Messages ─────────────────────────────────────────────────────────────────
