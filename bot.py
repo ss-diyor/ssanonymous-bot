@@ -1,11 +1,12 @@
 import asyncio
 import os
 from dotenv import load_dotenv
-from aiogram import Bot, Dispatcher, types
+from aiogram import Bot, Dispatcher, types, BaseMiddleware
 from aiogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
 from aiogram.filters import Command
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.context import FSMContext
+from typing import Any, Awaitable, Callable, Dict
 from LANGUAGES import get_text
 from database import (
     init_db, upsert_user,
@@ -13,7 +14,7 @@ from database import (
     get_last_message_status, set_message_rating, get_average_rating,
     get_today_count, get_status_counts, get_category_counts,
     get_active_users_count, get_messages_by_category,
-    get_all_user_ids,
+    get_all_user_ids, is_user_blocked, set_user_block_status,
     get_all_admin_ids, add_admin, remove_admin,
     save_admin_message, get_admin_messages,
     get_pending_messages,
@@ -32,9 +33,51 @@ BROADCAST_PREFIX   = "broadcast_"
 REVIEWING_PREFIX   = "reviewing_msg_"
 PENDING_PREFIX     = "pending_reply_"
 RATING_PREFIX      = "rate_msg_"
+BLOCK_PREFIX       = "block_user_"
 
 bot = Bot(token=TOKEN)
 dp  = Dispatcher()
+
+
+# ─── Middlewares ──────────────────────────────────────────────────────────────
+
+class AntiSpamMiddleware(BaseMiddleware):
+    def __init__(self, limit: int = 3):
+        self.limit = limit
+        self.cache = {}
+        super().__init__()
+
+    async def __call__(
+        self,
+        handler: Callable[[types.TelegramObject, Dict[str, Any]], Awaitable[Any]],
+        event: types.TelegramObject,
+        data: Dict[str, Any]
+    ) -> Any:
+        if not isinstance(event, types.Message):
+            return await handler(event, data)
+
+        user_id = event.from_user.id
+        
+        # Bloklangan foydalanuvchini tekshirish
+        if await is_user_blocked(user_id):
+            # Adminlar bloklanmaydi
+            if user_id != SUPER_ADMIN_ID and user_id not in await get_all_admin_ids():
+                return await event.answer(get_text("user_blocked", lang=data.get("lang", "uz")))
+
+        # Spamni cheklash (faqat /anonim va xabarlar uchun)
+        if event.text and event.text.startswith("/") and event.text not in ["/anonim"]:
+            return await handler(event, data)
+
+        now = asyncio.get_event_loop().time()
+        if user_id in self.cache:
+            last_time = self.cache[user_id]
+            if now - last_time < self.limit:
+                return await event.answer(get_text("spam_warning", lang=data.get("lang", "uz")))
+
+        self.cache[user_id] = now
+        return await handler(event, data)
+
+dp.message.middleware(AntiSpamMiddleware(limit=3))
 
 
 # ─── States ───────────────────────────────────────────────────────────────────
@@ -57,16 +100,24 @@ def lang_keyboard() -> InlineKeyboardMarkup:
     ])
 
 def reply_button(user_id: int, message_id: int) -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(inline_keyboard=[[
-        InlineKeyboardButton(
-            text="✉️ Javob berish",
-            callback_data=f"{ADMIN_REPLY_PREFIX}{user_id}:{message_id}"
-        ),
-        InlineKeyboardButton(
-            text="👁 Ko'rib chiqdim",
-            callback_data=f"{REVIEWING_PREFIX}{message_id}"
-        ),
-    ]])
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(
+                text="✉️ Javob berish",
+                callback_data=f"{ADMIN_REPLY_PREFIX}{user_id}:{message_id}"
+            ),
+            InlineKeyboardButton(
+                text="👁 Ko'rib chiqdim",
+                callback_data=f"{REVIEWING_PREFIX}{message_id}"
+            ),
+        ],
+        [
+            InlineKeyboardButton(
+                text="🚫 Bloklash",
+                callback_data=f"{BLOCK_PREFIX}{user_id}"
+            )
+        ]
+    ])
 
 def stats_filter_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[
@@ -539,6 +590,25 @@ async def cb_rating(callback: CallbackQuery, state: FSMContext):
             pass
             
     await callback.answer()
+
+
+# ─── Block Handler ────────────────────────────────────────────────────────────
+
+@dp.callback_query(lambda c: c.data and c.data.startswith(BLOCK_PREFIX))
+async def cb_block_user(callback: CallbackQuery):
+    if not await is_admin(callback.from_user.id):
+        await callback.answer("⛔ Ruxsat yo'q.", show_alert=True)
+        return
+    
+    user_id = int(callback.data.split(BLOCK_PREFIX, 1)[1])
+    
+    if user_id == SUPER_ADMIN_ID or user_id in await get_all_admin_ids():
+        await callback.answer("⚠️ Adminni bloklab bo'lmaydi.", show_alert=True)
+        return
+
+    await set_user_block_status(user_id, 1)
+    await callback.message.answer(f"🚫 Foydalanuvchi `{user_id}` bloklandi.", parse_mode="Markdown")
+    await callback.answer("✅ Bloklandi.", show_alert=True)
 
 
 # ─── /broadcast (super admin only) ───────────────────────────────────────────
