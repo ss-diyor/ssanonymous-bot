@@ -31,11 +31,13 @@ LANGUAGES = {
         'rate_response': "Iltimos, admin javobini baholang:",
         'rating_thanks': "Bahoyingiz uchun rahmat!",
         'avg_rating': "O'rtacha baho",
+        'user_blocked': "Siz botdan foydalanishdan chetlatilgansiz.",
+        'spam_warning': "Iltimos, biroz kuting. Xabarlarni juda tez yuboryapsiz.",
     },
     'ru': {
         'welcome': "Привет {mention}! \n\nДобро пожаловать в бот для обращений Специализированной школы Бустaнликского района.\n\n📨 Анонимное обращение: /anonim\nℹ️ О школе: /info\n🔗 Telegram канал и Discord сервер: /links",
         'info_text': "🏫 Наша школа была основана в 2022 году, и основная цель - предоставить учащимся качественное образование и широкие возможности. Наша школа - это современное учебное заведение, предоставляющее высококачественное образование для 5-11 классов. Коллектив школы готов к дружескому сотрудничеству.\n\nВ нашей школе:\n- Современные уроки по предметам (математика, физика, английский язык, химия, биология и другие )\n- Спортивные и творческие кружки.\n- Возможность участвовать в конкурсах и проектах.\n\nВы будете развивать знания и дружбу с нами.\nПрисоединяйтесь к нашему Telegram-каналу для получения дополнительных новостей!",
-        'links_text': "📢 Telegram канал:\nhttps://t.me/Bustanlikspecializedschool\n\n🎮 Discord сервер (управляется старшим учеником ):\nhttps://discord.gg/RsSFaC8zX",
+        'links_text': "📢 Telegram канал:\nhttps://t.me/Bustanlikspecializedschool\n\n🎮 Discord server (управляется старшим учеником ):\nhttps://discord.gg/RsSFaC8zX",
         'anonim_start_msg': "✍️ Вы можете написать свое обращение.\n\n📎 Вы можете отправить текст, изображение, голосовое сообщение или файл.",
         'anonim_category_prompt': "Выберите тип вашего обращения:",
         'category_suggestion': "Предложение",
@@ -64,6 +66,8 @@ LANGUAGES = {
         'rate_response': "Пожалуйста, оцените ответ администратора:",
         'rating_thanks': "Спасибо за вашу оценку!",
         'avg_rating': "Средняя оценка",
+        'user_blocked': "Вы заблокированы в этом боте.",
+        'spam_warning': "Пожалуйста, подождите. Вы отправляете сообщения слишком быстро.",
     },
     'en': {
         'welcome': "Hello {mention}! \n\nWelcome to the anonymous appeal bot of Bustanlik District Specialized School.\n\n📨 Anonymous appeal: /anonim\nℹ️ About the school: /info\n🔗 Telegram channel and Discord server: /links",
@@ -97,6 +101,8 @@ LANGUAGES = {
         'rate_response': "Please rate the administrator's response:",
         'rating_thanks': "Thank you for your rating!",
         'avg_rating': "Average rating",
+        'user_blocked': "You are blocked from using this bot.",
+        'spam_warning': "Please wait a moment. You are sending messages too fast.",
     }
 }
 
